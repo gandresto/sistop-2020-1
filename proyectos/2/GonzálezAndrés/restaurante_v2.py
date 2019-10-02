@@ -154,10 +154,19 @@ class Orden(object):
             return None
         return cliente
 
+    @property
+    def platillos(self):
+        global ordenes_platillos, platillos
+        ord_plat_filtrada = list(filter(lambda x: x['idOrden'] == self.id, ordenes_platillos))
+        platillosEnOrden = list()
+        for e in ord_plat_filtrada:
+            platillosEnOrden.append(Platillo.obtener(e['idPlatillo']))
+        return platillosEnOrden
+
     @classmethod
-    def crear(cls, idMesero = None, idCliente = None):
+    def crear(cls, idCliente = None, idMesero = None):
         global ordenes
-        ordenes.append(cls(idMesero, idCliente))
+        ordenes.append(cls(idCliente=idCliente, idMesero=idMesero))
         return True
     
     @classmethod
@@ -181,7 +190,7 @@ class Platillo(object):
         self.nombre = nombre
 
     @property
-    def orden(self):
+    def ordenes(self):
         global ordenes
         orden = list(filter(lambda x: x.idMesero == self.id, ordenes))
         return orden
