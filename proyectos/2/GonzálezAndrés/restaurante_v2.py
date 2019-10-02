@@ -1,23 +1,8 @@
+# -*- coding: utf-8 -*-
 from itertools import count
-platillos = [
-    {'id' : 0, 'nombre' :'Pozole'}, 
-    {'id' : 1, 'nombre' :'Tacos al Pastor'}, 
-    {'id' : 2, 'nombre' :'Enchiladas Verdes'}, 
-    {'id' : 3, 'nombre' :'Enchiladas Rojas'},
-    {'id' : 4, 'nombre' :'Enchiladas de Mole'},
-    {'id' : 5, 'nombre' :'Caldo de pollo'},
-    {'id' : 6, 'nombre' :'Caldo de res'},
-    {'id' : 7, 'nombre' :'Mole de Olla'},
-    {'id' : 8, 'nombre' :'Chiles en Nogada'},
-    {'id' : 9, 'nombre' :'Tacos dorados de pollo'},
-    {'id' : 10, 'nombre' :'Tacos dorados de res'},
-    {'id' : 11, 'nombre' :'Tacos dorados de papa'},
-    {'id' : 12, 'nombre' :'Tacos dorados combinados'},
-    {'id' : 13, 'nombre' :'Especial de la casa'},
-    {'id' : 14, 'nombre' :'Cochinita'},
-    {'id' : 15, 'nombre' :'Tinga de res'},
-    {'id' : 16, 'nombre' :'Tinga de pollo'},
-]
+import threading as th
+
+platillos = []
 clientes = []
 meseros = []
 cocineros = []
@@ -31,40 +16,38 @@ class Cliente(object):
         self.nombre = nombre
 
     @property
-    def obtenerOrden(self):
+    def orden(self):
         global ordenes
-        orden = list(filter(lambda x: x['idCliente'] == self.id, ordenes))
+        try:
+            orden = list(filter(lambda x: x.idCliente == self.id, ordenes))[0]
+        except IndexError as e:
+            print('No tiene órdenes registradas')
+            return None
         return orden
     
     def guardar(self):
         global clientes
-        clientes.append({
-            'id' : self.id,
-            'nombre' : self.nombre
-        })
+        clientes.append(self)
         return True
 
     @classmethod
     def crear(cls, nombre):
         global clientes
-        id = next(cls._ids)
-        clientes.append({
-            'id' : id,
-            'nombre' : nombre
-        })
+        #id = next(cls._ids)
+        clientes.append(cls(nombre))
         return True
 
     @classmethod
     def eliminar(cls, id):
         global clientes
         idxs_items = list(
-            filter(lambda i_x: i_x[1]['id'] == id, enumerate(clientes)))
+            filter(lambda i_x: i_x[1].id == id, enumerate(clientes)))
         if idxs_items:
             i, item_to_delete = idxs_items[0][0], idxs_items[0][1]
             del clientes[i]
             return True
         else:
-            return False
+            return None
     
     @classmethod
     def obtenerTodos(cls):
@@ -74,8 +57,15 @@ class Cliente(object):
     @classmethod
     def obtener(cls, id):
         global clientes
-        cliente = list(filter(lambda x: x['id'] == id, clientes))
+        try:
+            cliente = list(filter(lambda x: x.id == id, clientes))[0]
+        except IndexError as e:
+            print('No se encontró el cliente')
+            return None
         return cliente
+    
+    def __str__(self):
+        return self.nombre
 
 class Mesero(object):
     _ids = count(0)
@@ -84,17 +74,121 @@ class Mesero(object):
         self.nombre = nombre
 
     @property
-    def obtenerOrden(self):
+    def orden(self):
         global ordenes
-        orden = list(filter(lambda x: x['idMesero'] == self.id, ordenes))
+        orden = list(filter(lambda x: x.idMesero == self.id, ordenes))
         return orden
     
     def guardar(self):
         global meseros
-        meseros.append({
-            'id' : self.id,
-            'nombre' : self.nombre
-        })
+        meseros.append(self)
+        return True
+
+    @classmethod
+    def crear(cls, nombre):
+        global meseros
+        meseros.append(cls(nombre))
+        return True
+
+    @classmethod
+    def eliminar(cls, id):
+        global meseros
+        idxs_items = list(
+            filter(lambda i_x: i_x[1].id == id, enumerate(meseros)))
+        if idxs_items:
+            i, item_to_delete = idxs_items[0][0], idxs_items[0][1]
+            del meseros[i]
+            return True
+        else:
+            return None
+    
+    @classmethod
+    def obtenerTodos(cls):
+        global meseros
+        return [mesero for mesero in meseros]
+
+    @classmethod
+    def obtener(cls, id):
+        global meseros
+        try:
+            mesero = list(filter(lambda x: x.id == id, meseros))[0]
+        except IndexError as e:
+            return None
+        return mesero
+
+class Cocinero(object):
+    _ids = count(0)
+    def __init__(self, nombre):
+        self.id = next(self._ids)
+        self.nombre = nombre
+
+class Orden(object):
+    _ids = count(0)
+    def __init__(self, idCliente = None, idMesero = None):
+        self.id = next(self._ids)
+        self.idMesero = idMesero
+        self.idCliente = idCliente
+    
+    def guardar(self):
+        global ordenes
+        ordenes.append(self)
+        return True
+
+    @property
+    def mesero(self):
+        global meseros
+        try:
+            mesero = list(filter(lambda x: x.id == self.idMesero, meseros))
+        except IndexError as e:
+            print('La orden no tiene asignada ningún mesero')
+            return None
+        return mesero
+
+    @property
+    def cliente(self):
+        global clientes
+        try:
+            cliente = list(filter(lambda x: x.id == self.idCliente, clientes))[0]
+        except IndexError as e:
+            print('La orden no le pertenece a ningún cliente')
+            return None
+        return cliente
+
+    @classmethod
+    def crear(cls, idMesero = None, idCliente = None):
+        global ordenes
+        ordenes.append(cls(idMesero, idCliente))
+        return True
+    
+    @classmethod
+    def obtenerTodos(cls):
+        global ordenes
+        return [orden for orden in ordenes]
+
+    @classmethod
+    def obtener(cls, id):
+        global ordenes
+        try:
+            orden = list(filter(lambda x: x.id == id, ordenes))[0]
+        except IndexError as e:
+            return None
+        return orden
+
+class Platillo(object):
+    _ids = count(0)
+    def __init__(self, nombre : str):
+        self.id = next(self._ids)
+        self.nombre = nombre
+
+    @property
+    def orden(self):
+        global ordenes
+        orden = list(filter(lambda x: x.idMesero == self.id, ordenes))
+        return orden
+    
+    def guardar(self):
+        global meseros
+        meseros.append(self)
         return True
 
     @classmethod
@@ -117,7 +211,7 @@ class Mesero(object):
             del meseros[i]
             return True
         else:
-            return False
+            return None
     
     @classmethod
     def obtenerTodos(cls):
@@ -127,14 +221,25 @@ class Mesero(object):
     @classmethod
     def obtener(cls, id):
         global meseros
-        mesero = list(filter(lambda x: x['id'] == id, meseros))
+        mesero = list(filter(lambda x: x['id'] == id, meseros))[0]
         return mesero
 
-class Cocineros(object):
-    pass
-
-class Ordenes(object):
-    pass
-
-class Platillo(object):
-    pass
+platillos = [Platillo(nombre) for nombre in
+    ['Pozole', 
+    'Tacos al Pastor', 
+    'Enchiladas Verdes', 
+    'Enchiladas Rojas',
+    'Enchiladas de Mole',
+    'Caldo de pollo',
+    'Caldo de res',
+    'Mole de Olla',
+    'Chiles en Nogada',
+    'Tacos dorados de pollo',
+    'Tacos dorados de res',
+    'Tacos dorados de papa',
+    'Tacos dorados combinados',
+    'Especial de la casa',
+    'Cochinita',
+    'Tinga de res',
+    'Tinga de pollo',]
+]
