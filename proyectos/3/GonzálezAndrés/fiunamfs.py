@@ -20,6 +20,10 @@ def format_date(datestr : str):
     return '%4s/%2s/%2s %2s:%2s' % (datestr[0:4], datestr[4:6], datestr[6:8], datestr[8:10], datestr[10:12])
 
 class FIUNAMFS(object):
+    """Clase principal. Al instanciar un objeto de esta clase, requerimos \
+    la ruta en dónde se encuentra la imagen del sistema a utilizar.
+    Para poder utilizar sus funciones, requerimos "montar" la unidad.
+    """
     def __init__(self, ruta_img):
         self.ruta_img = ruta_img
         self.__listaEntDir = []
@@ -30,6 +34,10 @@ class FIUNAMFS(object):
             self.desmontar()
 
     def montar(self):
+        """\"Monta\" la unidad, poniendo el archivo en ruta_img en memoria.
+        Inicializa los atributos del sistema de archivos que necesitaremos para \
+        las demás funciones.
+        """
         if self.montado:   
             print(MSGADV_FS_YA_MONT)
             return True 
@@ -81,27 +89,34 @@ class FIUNAMFS(object):
                 return False
 
     def desmontar(self):
+        """Cierra los archivos en memoria
+        """
         if self.montado:
             self.__mmfs.close()
             self.__f.close()
             self.montado = False
             print('Sistema de archivos desmontado')
         else:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
 
     def listdir(self):
+        """Devuelve una lista ordenada con los nombres de los archivos en el directorio
+        """
         ldir = []
         if self.montado:
             for entradaDir in self.__listaEntDir:
                 ldir.append(entradaDir.nombre)
         else: 
-            print(MSGERR_NO_MONTADO)
-        return ldir
+            raise NotMountedError(MSGERR_NO_MONTADO)
+        return sorted(ldir)
     
     def scandir(self):
+        """Devuelve una lista de entradas del directorio en nuestro\
+        sistema de archivos.
+        """
         self.__listaEntDir = []
         if not self.montado:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
             return []
         
         inicio = self.tam_cluster
@@ -126,7 +141,7 @@ class FIUNAMFS(object):
             destino -- ruta y nombre del archivo de destino
         """
         if not self.montado:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
             return False
 
         resultado = list(filter( lambda entdir: entdir.nombre == origen, self.__listaEntDir)) # Buscamos el elemento que coincida
@@ -149,9 +164,14 @@ class FIUNAMFS(object):
             print('IOError: %s' % ioerr)            
     
     def subir(self, origen, destino=''):
+        """Copiar un archivo de nuestro sistema de archivos a FIUNAMFS
+        Atributos:
+            origen -- nombre del archivo a copiar
+            destino -- ruta y nombre del archivo de destino
+        """
         destino = destino.strip() # Le quitamos los caracteres en blanco al inicio y al final
         if not self.montado:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
             return False
 
         if not destino:
@@ -178,7 +198,7 @@ class FIUNAMFS(object):
         if self.__listaEntDir:
             resultado = list(filter( lambda entdir: entdir.nombre == destino, self.__listaEntDir)) # Buscamos si hay algún archivo con el mismo nombre
             if resultado:
-                raise ArchExistError('Ya existe un archivo con ese nombre en el directorio: %s' % destino)
+                raise ArchExistError('Error: Ya existe un archivo con ese nombre en el directorio: %s' % destino)
 
             self.__listaEntDir = sorted(self.__listaEntDir, key=lambda ed: ed.cluster_inicial) # Ordenamos la lista de entradas con base en el cluster donde inician
             for i, ed_actual in enumerate(self.__listaEntDir): # ed_actual : entrada del directorio actual
@@ -214,16 +234,13 @@ class FIUNAMFS(object):
             En el borrado duro, borra los datos de la entrada del directorio y los datos del archivo
         """
         if not self.montado:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
             return False
 
         resultado = list(filter( lambda entdir: entdir.nombre == archivo, self.__listaEntDir)) # Buscamos el elemento que coincida
         if not resultado:
             print(MSGERR_ARCH_NO_ENC)
             return False
-
-        #nuevaListaEntDir = list(set(self.__listaEntDir) - set(resultado)) # Le restamos el valor que encontramos
-        #print(nuevaListaEntDir)
 
         entrDir = resultado.pop() # Obtenemos la entrada del directorio
         
@@ -244,7 +261,7 @@ class FIUNAMFS(object):
 
     def desfragmentar(self):
         if not self.montado:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
             return False
 
         arch_movidos = 0 # Contador para indicar los archivos que fueron movidos durante la desfragmentación
@@ -297,7 +314,7 @@ class FIUNAMFS(object):
             Valor booleano que marca True si logró agregar la entrada y false en caso contrario
         """
         if not self.montado:
-            print(MSGERR_NO_MONTADO)
+            raise NotMountedError(MSGERR_NO_MONTADO)
             return False
         
         inicio = self.tam_cluster
@@ -327,13 +344,13 @@ class FIUNAMFS(object):
                 self.__listaEntDir.append(entDir) # Agregamos la entrada a la lista
                 return True
     
-    def formatear(self, version=0.8,
-                label='No Label', sector_size=512, sect_per_clust=4,
-                dir_clusters=4):
-        pass
+    # def formatear(self, version=0.8,
+    #             label='No Label', sector_size=512, sect_per_clust=4,
+    #             dir_clusters=4):
+    #     pass
     
-    def guardarimg(self, filename):
-        pass
+    # def guardarimg(self, filename):
+    #     pass
 
     @staticmethod
     def crearimg(filename, version=0.8,
@@ -394,6 +411,8 @@ class FIUNAMFS(object):
         return True
 
 class EntradaDir(object):
+    """Un objeto para abstraer una entrada del directorio en el sistema de archivos FIUNAMFS
+    """
     def __init__(self, nombre, tam_archivo, cluster_inicial, f_creacion = now(), f_modif = now(), direccion_ed = 0):
         self.nombre = nombre
         self.tam_archivo = tam_archivo
@@ -412,14 +431,14 @@ class EntradaDir(object):
     def __eq__(self, value):
         return self.nombre == value.nombre and self.cluster_inicial == value.cluster_inicial
 
-# Error de sistema no montado
-# class NMError(Error):
-#     def __init__(self, expression, message):
-#         self.expression = expression
-#         self.message = message
-
 class Error(Exception):
     pass
+
+# Error de sistema no montado
+class NotMountedError(Error):
+    def __init__(self, message=MSGERR_NO_MONTADO):
+#         self.expression = expression
+        self.message = message
 
 class ArchExistError(Error):
     def __init__(self, message):
